@@ -19,13 +19,3 @@ resource "random_pet" "database" {
   separator = "_"
 }
 
-# Output the generated pet names
-output "web_server_name" {
-  value = random_pet.web_server.id
-  description = "Generated pet name for the web server"
-}
-
-output "database_name" {
-  value = random_pet.database.id
-  description = "Generated pet name for the database"
-}
