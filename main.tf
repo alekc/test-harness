@@ -22,4 +22,8 @@ resource "random_pet" "master-only" {
   length = 3
   separator = "_"
 }
+resource "random_pet" "master-only2" {
+  length = 3
+  separator = "_"
+}
 
