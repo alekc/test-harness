@@ -39,6 +39,12 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform plan -out=${{ env.TF_PLAN_FILE }}
 
+      - name: Post PR comment
+        uses: borchero/terraform-plan-comment@v2
+        with:
+          token: ${{ github.token }}
+          planfile: .planfile
+
       - name: Upload plan as artifact
         uses: actions/upload-artifact@v4
         with:
