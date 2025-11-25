@@ -6,7 +6,7 @@ on:
     types: [ opened, synchronize, reopened, closed ]
 
 env:
-  TF_WORKING_DIR: ./terraform          # path to your Terraform root
+  TF_WORKING_DIR: .                    # path to your Terraform root (current directory)
   TF_PLAN_FILE: tfplan
 
 jobs:
