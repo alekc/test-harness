@@ -1,0 +1,96 @@
+name: Terraform PR plan & apply
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, closed ]
+
+env:
+  TF_WORKING_DIR: ./terraform          # path to your Terraform root
+  TF_PLAN_FILE: tfplan
+
+jobs:
+  plan:
+    name: Terraform plan (on PR)
+    # Run for all PR events except "closed",
+    # and also run once more when the PR is closed *and* merged
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write          # if you use OIDC auth for cloud provider
+      actions: write           # needed to upload artifacts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.7
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -out=${{ env.TF_PLAN_FILE }}
+
+      - name: Upload plan as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-pr-${{ github.event.pull_request.number }}
+          path: ${{ env.TF_WORKING_DIR }}/${{ env.TF_PLAN_FILE }}
+          overwrite: true
+
+      # Optional: add a short summary as a PR comment
+      - name: Comment plan summary on PR
+        if: github.event.action != 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const body = `Terraform plan has been generated for this PR and stored
+            as an artifact (tfplan-pr-${prNumber}).`;
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: prNumber,
+              body
+            });
+
+  apply:
+    name: Terraform apply (when PR is merged)
+    needs: plan
+    # Only run when the PR was closed *and* merged into main
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+
+    steps:
+      - name: Checkout merged commit (main with PR changes)
+        uses: actions/checkout@v4
+
+      - name: Download plan artifact from this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-pr-${{ github.event.pull_request.number }}
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.7
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform apply saved plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve ${{ env.TF_PLAN_FILE }}
