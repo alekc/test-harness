@@ -108,10 +108,93 @@ jobs:
           echo "Source run ID: ${{ steps.find-run.outputs.plan_run_id }}"
           echo "PR number: ${{ github.event.pull_request.number }}"
 
-      - name: Download approved plan artifact from plan run
+      - name: List available artifacts from the plan run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = ${{ steps.find-run.outputs.plan_run_id }};
+            core.info(`=== Listing artifacts from workflow run ${runId} ===`);
+            
+            try {
+              const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId,
+              });
+
+              core.info(`Found ${artifacts.artifacts.length} artifacts in run ${runId}:`);
+              artifacts.artifacts.forEach((artifact, index) => {
+                core.info(`${index + 1}. Name: "${artifact.name}", Size: ${artifact.size_in_bytes} bytes, Created: ${artifact.created_at}, Expired: ${artifact.expired}`);
+              });
+
+              if (artifacts.artifacts.length === 0) {
+                core.warning(`No artifacts found in run ${runId}. The plan workflow may have failed to upload the artifact.`);
+              }
+            } catch (error) {
+              core.error(`Failed to list artifacts: ${error.message}`);
+            }
+
+      - name: Find and download the correct artifact
+        id: find-and-download-artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = ${{ steps.find-run.outputs.plan_run_id }};
+            const prNumber = ${{ github.event.pull_request.number }};
+            const expectedArtifactName = `tfplan-pr-${prNumber}`;
+            
+            core.info(`=== Attempting to find and download artifact ===`);
+            core.info(`Expected artifact name: ${expectedArtifactName}`);
+            
+            // Get all artifacts from the run
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            // Try to find the exact artifact name first
+            let artifact = artifacts.artifacts.find(a => a.name === expectedArtifactName);
+            
+            if (!artifact) {
+              // If exact name not found, try to find any artifact that looks like a terraform plan
+              const planArtifacts = artifacts.artifacts.filter(a => 
+                a.name.includes('tfplan') || 
+                a.name.includes('terraform') || 
+                a.name.includes('plan')
+              );
+              
+              core.info(`Exact artifact name not found. Found ${planArtifacts.length} plan-related artifacts:`);
+              planArtifacts.forEach(a => core.info(`- ${a.name}`));
+              
+              if (planArtifacts.length === 1) {
+                artifact = planArtifacts[0];
+                core.info(`Using single plan artifact: ${artifact.name}`);
+              } else if (planArtifacts.length > 1) {
+                // Try to find one that matches our PR number
+                artifact = planArtifacts.find(a => a.name.includes(prNumber.toString()));
+                if (artifact) {
+                  core.info(`Using artifact matching PR number: ${artifact.name}`);
+                } else {
+                  artifact = planArtifacts[0]; // Use the first one as fallback
+                  core.info(`Using first plan artifact as fallback: ${artifact.name}`);
+                }
+              }
+            }
+
+            if (!artifact) {
+              core.setFailed(`No terraform plan artifact found in workflow run ${runId}`);
+              return;
+            }
+
+            core.info(`Selected artifact: ${artifact.name} (${artifact.size_in_bytes} bytes)`);
+            core.setOutput('artifact_name', artifact.name);
+            core.setOutput('artifact_id', artifact.id);
+
+      - name: Download the selected artifact
         uses: actions/download-artifact@v4
         with:
-          name: tfplan-pr-${{ github.event.pull_request.number }}
+          name: ${{ steps.find-and-download-artifact.outputs.artifact_name }}
           path: ${{ env.TF_WORKING_DIR }}
           run-id: ${{ steps.find-run.outputs.plan_run_id }}
 
