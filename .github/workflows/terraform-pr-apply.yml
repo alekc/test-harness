@@ -194,7 +194,7 @@ jobs:
       - name: Download the selected artifact
         uses: actions/download-artifact@v6
         with:
-          artifact-id: ${{ steps.find-and-download-artifact.outputs.artifact_id }}
+          artifact-ids: ${{ steps.find-and-download-artifact.outputs.artifact_id }}
           path: ${{ env.TF_WORKING_DIR }}
           run-id: ${{ steps.find-run.outputs.plan_run_id }}
 
