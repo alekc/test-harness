@@ -10,17 +10,17 @@ resource "random_pet" "new-beast" {
   length = 3
   separator = "-"
 }
-# Random pet name for a web server
-resource "random_pet" "web_server" {
-  length = 3
-  separator = "-"
-}
-
-# Random pet name for a database
-resource "random_pet" "database" {
-  length = 3
-  separator = "_"
-}
+# # Random pet name for a web server
+# resource "random_pet" "web_server" {
+#   length = 3
+#   separator = "-"
+# }
+#
+# # Random pet name for a database
+# resource "random_pet" "database" {
+#   length = 3
+#   separator = "_"
+# }
 # resource "random_pet" "master-only" {
 #   length = 3
 #   separator = "_"
@@ -29,9 +29,9 @@ resource "random_pet" "database" {
 #   length = 3
 #   separator = "_"
 # }
-resource "random_pet" "master-only3" {
-  length = 3
-  separator = "_"
-}
+# resource "random_pet" "master-only3" {
+#   length = 3
+#   separator = "_"
+# }
 
 
