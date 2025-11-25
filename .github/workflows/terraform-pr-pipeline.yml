@@ -2,11 +2,11 @@ name: Terraform PR plan & apply
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
     types: [ opened, synchronize, reopened, closed ]
 
 env:
-  TF_WORKING_DIR: ./terraform          # path to your Terraform root
+  TF_WORKING_DIR: .                    # path to your Terraform root (current directory)
   TF_PLAN_FILE: tfplan
 
 jobs:
@@ -39,27 +39,18 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform plan -out=${{ env.TF_PLAN_FILE }}
 
+      - name: Post PR comment
+        uses: borchero/terraform-plan-comment@v2
+        with:
+          token: ${{ github.token }}
+          planfile: ${{ env.TF_PLAN_FILE }}
+
       - name: Upload plan as artifact
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-pr-${{ github.event.pull_request.number }}
           path: ${{ env.TF_WORKING_DIR }}/${{ env.TF_PLAN_FILE }}
           overwrite: true
-
-      # Optional: add a short summary as a PR comment
-      - name: Comment plan summary on PR
-        if: github.event.action != 'closed'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const prNumber = context.payload.pull_request.number;
-            const body = `Terraform plan has been generated for this PR and stored
-            as an artifact (tfplan-pr-${prNumber}).`;
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: prNumber,
-              body
-            });
 
   apply:
     name: Terraform apply (when PR is merged)
