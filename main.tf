@@ -18,6 +18,10 @@ resource "random_pet" "database" {
   length = 3
   separator = "_"
 }
+resource "random_pet" "foo" {
+  length = 3
+  separator = "_"
+}
 
 # Output the generated pet names
 output "web_server_name" {
