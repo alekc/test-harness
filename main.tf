@@ -18,7 +18,7 @@ resource "random_pet" "database" {
   length = 3
   separator = "_"
 }
-resource "random_pet" "foo" {
+resource "random_pet" "master-only" {
   length = 3
   separator = "_"
 }
