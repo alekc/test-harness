@@ -1,3 +1,5 @@
+# .github/workflows/terraform-pr-pipeline.yml
+
 name: Terraform PR plan & apply
 
 on:
@@ -25,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
