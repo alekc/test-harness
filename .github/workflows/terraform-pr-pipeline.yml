@@ -1,6 +1,6 @@
 # .github/workflows/terraform-pr-pipeline.yml
 
-name: Terraform PR plan
+name: Terraform PR Plan
 
 on:
   pull_request:
