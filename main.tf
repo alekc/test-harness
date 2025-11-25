@@ -6,6 +6,10 @@ terraform {
     }
   }
 }
+resource "random_pet" "new-beast" {
+  length = 3
+  separator = "-"
+}
 
 # Random pet name for a web server
 # resource "random_pet" "web_server" {
