@@ -1,6 +1,6 @@
 # .github/workflows/terraform-pr-pipeline.yml
 
-name: Terraform PR plan & apply
+name: Terraform PR plan
 
 on:
   pull_request:
@@ -55,36 +55,3 @@ jobs:
           name: tfplan-pr-${{ github.event.pull_request.number }}
           path: ${{ env.TF_WORKING_DIR }}/${{ env.TF_PLAN_FILE }}
           overwrite: true
-
-  apply:
-    name: Terraform apply (when PR is merged)
-    # Only run when the PR was closed *and* merged into main
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      actions: read
-
-    steps:
-      - name: Checkout merged commit (main with PR changes)
-        uses: actions/checkout@v4
-
-      - name: Download plan artifact from this workflow run
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-pr-${{ github.event.pull_request.number }}
-          path: ${{ env.TF_WORKING_DIR }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.7
-
-      - name: Terraform init
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
-
-      - name: Terraform apply saved plan
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve ${{ env.TF_PLAN_FILE }}
