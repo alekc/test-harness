@@ -16,7 +16,7 @@ jobs:
     name: Terraform plan (on PR)
     # Run for all PR events except "closed",
     # and also run once more when the PR is closed *and* merged
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -58,7 +58,6 @@ jobs:
 
   apply:
     name: Terraform apply (when PR is merged)
-    needs: plan
     # Only run when the PR was closed *and* merged into main
     if: github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
