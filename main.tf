@@ -9,7 +9,7 @@ terraform {
 
 # Random pet name for a web server
 resource "random_pet" "web_server" {
-  length = 2
+  length = 3
   separator = "-"
 }
 
