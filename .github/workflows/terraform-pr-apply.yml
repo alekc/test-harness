@@ -27,7 +27,9 @@ jobs:
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
+            const prHeadSha = context.payload.pull_request.head.sha;
             core.info(`=== DEBUG: Looking for plan run for PR #${prNumber} ===`);
+            core.info(`PR Head SHA: ${prHeadSha}`);
 
             // Locate the workflow by name
             const workflowName = 'Terraform PR Plan';
@@ -54,51 +56,38 @@ jobs:
             core.info(`=== Found target workflow ===`);
             core.info(`Workflow ID: ${workflow.id}, Name: "${workflow.name}", State: ${workflow.state}`);
 
-            // Find the most recent successful run of that workflow that belongs to this PR
+            // Find workflow runs by matching head SHA (more reliable than PR association)
             core.info(`=== Fetching workflow runs ===`);
             const runsResp = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: workflow.id,
+              head_sha: prHeadSha,
               per_page: 50,
             });
 
             const runs = runsResp.data.workflow_runs || [];
-            core.info(`Found ${runs.length} total workflow runs`);
+            core.info(`Found ${runs.length} workflow runs for head SHA: ${prHeadSha}`);
 
             // Debug: Log all workflow runs with details
-            core.info(`=== All workflow runs ===`);
+            core.info(`=== Workflow runs for this PR's head SHA ===`);
             runs.forEach((r, index) => {
               const prs = r.pull_requests ? r.pull_requests.map(pr => `#${pr.number}`).join(',') : 'none';
-              core.info(`${index + 1}. Run ID: ${r.id}, Status: ${r.status}, Conclusion: ${r.conclusion}, PRs: ${prs}, Head SHA: ${r.head_sha}`);
-            });
-
-            // Filter runs for our specific PR
-            const prRuns = runs.filter(r => 
-              Array.isArray(r.pull_requests) && 
-              r.pull_requests.some(pr => pr.number === prNumber)
-            );
-
-            core.info(`=== Runs associated with PR #${prNumber} (${prRuns.length} found) ===`);
-            prRuns.forEach((r, index) => {
-              core.info(`${index + 1}. Run ID: ${r.id}, Status: ${r.status}, Conclusion: ${r.conclusion}, Created: ${r.created_at}`);
+              core.info(`${index + 1}. Run ID: ${r.id}, Status: ${r.status}, Conclusion: ${r.conclusion}, PRs: ${prs}, Head SHA: ${r.head_sha}, Created: ${r.created_at}`);
             });
 
             // Find successful runs
-            const successfulRuns = prRuns.filter(r => r.conclusion === 'success');
-            core.info(`=== Successful runs for PR #${prNumber} (${successfulRuns.length} found) ===`);
+            const successfulRuns = runs.filter(r => r.conclusion === 'success');
+            core.info(`=== Successful runs (${successfulRuns.length} found) ===`);
             successfulRuns.forEach((r, index) => {
               core.info(`${index + 1}. Run ID: ${r.id}, Created: ${r.created_at}`);
             });
 
-            const run = runs.find(r =>
-              r.conclusion === 'success' &&
-              Array.isArray(r.pull_requests) &&
-              r.pull_requests.some(pr => pr.number === prNumber)
-            );
+            // Get the most recent successful run
+            const run = successfulRuns.length > 0 ? successfulRuns[0] : null;
 
             if (!run) {
-              core.setFailed(`No successful plan run found for PR #${prNumber}. Checked ${runs.length} total runs, found ${prRuns.length} for this PR, ${successfulRuns.length} successful.`);
+              core.setFailed(`No successful plan run found for PR #${prNumber} with head SHA ${prHeadSha}. Checked ${runs.length} total runs, ${successfulRuns.length} successful.`);
               return;
             }
 
