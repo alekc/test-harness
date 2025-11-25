@@ -2,7 +2,7 @@ name: Terraform PR plan & apply
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
     types: [ opened, synchronize, reopened, closed ]
 
 env:
