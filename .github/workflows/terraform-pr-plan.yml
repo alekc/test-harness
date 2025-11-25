@@ -1,6 +1,6 @@
 # .github/workflows/terraform-pr-pipeline.yml
 
-name: Terraform PR Plan
+name: "Deploy – ${{ github.event.pull_request.title }}"
 
 on:
   pull_request:
