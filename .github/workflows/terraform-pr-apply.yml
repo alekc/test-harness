@@ -27,21 +27,35 @@ jobs:
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
+            core.info(`=== DEBUG: Looking for plan run for PR #${prNumber} ===`);
 
             // Locate the workflow by name
             const workflowName = 'Terraform PR Plan';
+            core.info(`Searching for workflow: "${workflowName}"`);
+            
             const { data: workflows } = await github.rest.actions.listRepoWorkflows({
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
 
+            // Debug: Log all available workflows
+            core.info(`=== Available workflows (${workflows.workflows.length} total) ===`);
+            workflows.workflows.forEach((w, index) => {
+              core.info(`${index + 1}. ID: ${w.id}, Name: "${w.name}", Path: ${w.path}, State: ${w.state}`);
+            });
+
             const workflow = workflows.workflows.find(w => w.name === workflowName);
             if (!workflow) {
-              core.setFailed(`Workflow '${workflowName}' not found.`);
+              const availableNames = workflows.workflows.map(w => `"${w.name}"`).join(', ');
+              core.setFailed(`Workflow '${workflowName}' not found. Available workflows: ${availableNames}`);
               return;
             }
 
+            core.info(`=== Found target workflow ===`);
+            core.info(`Workflow ID: ${workflow.id}, Name: "${workflow.name}", State: ${workflow.state}`);
+
             // Find the most recent successful run of that workflow that belongs to this PR
+            core.info(`=== Fetching workflow runs ===`);
             const runsResp = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -50,6 +64,32 @@ jobs:
             });
 
             const runs = runsResp.data.workflow_runs || [];
+            core.info(`Found ${runs.length} total workflow runs`);
+
+            // Debug: Log all workflow runs with details
+            core.info(`=== All workflow runs ===`);
+            runs.forEach((r, index) => {
+              const prs = r.pull_requests ? r.pull_requests.map(pr => `#${pr.number}`).join(',') : 'none';
+              core.info(`${index + 1}. Run ID: ${r.id}, Status: ${r.status}, Conclusion: ${r.conclusion}, PRs: ${prs}, Head SHA: ${r.head_sha}`);
+            });
+
+            // Filter runs for our specific PR
+            const prRuns = runs.filter(r => 
+              Array.isArray(r.pull_requests) && 
+              r.pull_requests.some(pr => pr.number === prNumber)
+            );
+
+            core.info(`=== Runs associated with PR #${prNumber} (${prRuns.length} found) ===`);
+            prRuns.forEach((r, index) => {
+              core.info(`${index + 1}. Run ID: ${r.id}, Status: ${r.status}, Conclusion: ${r.conclusion}, Created: ${r.created_at}`);
+            });
+
+            // Find successful runs
+            const successfulRuns = prRuns.filter(r => r.conclusion === 'success');
+            core.info(`=== Successful runs for PR #${prNumber} (${successfulRuns.length} found) ===`);
+            successfulRuns.forEach((r, index) => {
+              core.info(`${index + 1}. Run ID: ${r.id}, Created: ${r.created_at}`);
+            });
 
             const run = runs.find(r =>
               r.conclusion === 'success' &&
@@ -58,11 +98,12 @@ jobs:
             );
 
             if (!run) {
-              core.setFailed(`No successful plan run found for PR #${prNumber}.`);
+              core.setFailed(`No successful plan run found for PR #${prNumber}. Checked ${runs.length} total runs, found ${prRuns.length} for this PR, ${successfulRuns.length} successful.`);
               return;
             }
 
-            core.info(`Using plan from workflow_run id=${run.id} for PR #${prNumber}.`);
+            core.info(`=== SUCCESS: Using plan from workflow run ===`);
+            core.info(`Run ID: ${run.id}, Created: ${run.created_at}, Head SHA: ${run.head_sha}`);
             core.setOutput('plan_run_id', String(run.id));
 
       - name: Checkout merged commit
@@ -70,12 +111,34 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
 
+      - name: Debug artifact download info
+        run: |
+          echo "=== Artifact Download Debug Info ==="
+          echo "Artifact name: tfplan-pr-${{ github.event.pull_request.number }}"
+          echo "Download path: ${{ env.TF_WORKING_DIR }}"
+          echo "Source run ID: ${{ steps.find-run.outputs.plan_run_id }}"
+          echo "PR number: ${{ github.event.pull_request.number }}"
+
       - name: Download approved plan artifact from plan run
         uses: actions/download-artifact@v4
         with:
           name: tfplan-pr-${{ github.event.pull_request.number }}
           path: ${{ env.TF_WORKING_DIR }}
           run-id: ${{ steps.find-run.outputs.plan_run_id }}
+
+      - name: Verify downloaded plan file
+        run: |
+          echo "=== Verifying Plan File ==="
+          echo "Working directory contents:"
+          ls -la ${{ env.TF_WORKING_DIR }}
+          echo "Looking for plan file: ${{ env.TF_PLAN_FILE }}"
+          if [ -f "${{ env.TF_WORKING_DIR }}/${{ env.TF_PLAN_FILE }}" ]; then
+            echo "✅ Plan file found!"
+            file "${{ env.TF_WORKING_DIR }}/${{ env.TF_PLAN_FILE }}"
+          else
+            echo "❌ Plan file NOT found!"
+            exit 1
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -85,6 +148,16 @@ jobs:
       - name: Terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
+
+      - name: Debug terraform apply command
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "=== Terraform Apply Debug ==="
+          echo "Working directory: $(pwd)"
+          echo "Plan file: ${{ env.TF_PLAN_FILE }}"
+          echo "Command to execute: terraform apply -auto-approve ${{ env.TF_PLAN_FILE }}"
+          echo "Terraform version:"
+          terraform version
 
       - name: Terraform apply saved plan
         working-directory: ${{ env.TF_WORKING_DIR }}
