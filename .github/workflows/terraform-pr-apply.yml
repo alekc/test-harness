@@ -6,8 +6,8 @@ on:
     types: [ closed ]
 
 env:
+  TERRAFORM_VERSION: 1.14.0
   TF_WORKING_DIR: .
-  TF_PLAN_FILE: tfplan
 
 jobs:
   apply:
@@ -97,6 +97,7 @@ jobs:
 
       - name: Checkout merged commit
         uses: actions/checkout@v4
+
 #        with:
 #          ref: ${{ github.event.pull_request.merge_commit_sha }}
 
@@ -190,18 +191,19 @@ jobs:
 #            core.info(`Selected artifact: ${artifact.name} (${artifact.size_in_bytes} bytes)`);
 #            core.setOutput('artifact_name', artifact.name);
 #            core.setOutput('artifact_id', artifact.id);
-
       - name: Download the selected artifact
         uses: actions/download-artifact@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-#          artifact-ids: ${{ steps.find-and-download-artifact.outputs.artifact_id }}
           path: ${{ env.TF_WORKING_DIR }}
+#          artifact-ids: ${{ steps.find-and-download-artifact.outputs.artifact_id }}
           name: tfplan-pr-${{ github.event.pull_request.number }}
           run-id: ${{ steps.find-run.outputs.plan_run_id }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -211,21 +213,22 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           echo "=== Terraform Apply Debug ==="
-          echo "Working directory: $(pwd)"
-          echo "Plan file: ${TF_PLAN_FILE}"
-          echo "Command to execute: terraform apply -auto-approve ${TF_PLAN_FILE}"
-          echo "Terraform version:"; terraform version
+          echo "Terraform version (expected ${TERRAFORM_VERSION}):"; terraform version
+          echo "Plan file: tfplan-pr-${{ github.event.pull_request.number }}"
+          echo "Command to execute: terraform apply -auto-approve tfplan-pr-${{ github.event.pull_request.number }}"
           echo "=== Checking for plan file existence ==="
-          if [ -f "${TF_PLAN_FILE}" ]; then
+          echo "Terraform version:"; terraform version
+          if [ -f "tfplan-pr-${{ github.event.pull_request.number }}" ]; then
             echo "✅ Plan file found"
             echo "=== Human-readable Terraform plan (terraform show) ==="
-            terraform show "${TF_PLAN_FILE}" || echo "terraform show failed"
+            terraform show "tfplan-pr-${{ github.event.pull_request.number }}" || echo "terraform show failed"
             echo "=== End of terraform show output ==="
           else
-            echo "❌ Plan file ${TF_PLAN_FILE} not found before apply"
+            echo "❌ Plan file tfplan-pr-${{ github.event.pull_request.number }} not found before apply"
             ls -la
           fi
 
       - name: Terraform apply saved plan
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve ${{ env.TF_PLAN_FILE }}
+        run: terraform apply -auto-approve tfplan-pr-${{ github.event.pull_request.number }}
+
