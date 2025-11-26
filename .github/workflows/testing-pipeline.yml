@@ -20,7 +20,7 @@ jobs:
           python --version || true
 
   stage2:
-    name: "Stage 2 - Requires Approval (Environment: main)"
+    name: "Stage 2 - Requires Approval (Environment: main)."
     needs: [stage1]
     runs-on: ubuntu-latest
     environment:
