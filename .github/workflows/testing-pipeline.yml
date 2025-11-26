@@ -20,7 +20,7 @@ jobs:
           python --version || true
 
   stage2:
-    name: Stage 2 - Requires Approval (Environment: main)
+    name: "Stage 2 - Requires Approval (Environment: main)"
     needs: [stage1]
     runs-on: ubuntu-latest
     environment:
@@ -42,7 +42,7 @@ jobs:
           echo "All tests passed"
 
   stage4:
-    name: Stage 4 - Finalize (Requires Approval)
+    name: "Stage 4 - Finalize (Requires Approval)"
     needs: [stage3]
     runs-on: ubuntu-latest
     environment:
