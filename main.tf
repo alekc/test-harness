@@ -29,9 +29,9 @@ resource "random_pet" "new-beast" {
 #   length = 3
 #   separator = "_"
 # }
-# resource "random_pet" "master-only3" {
-#   length = 3
-#   separator = "_"
-# }
+resource "random_pet" "master-only3" {
+  length = 3
+  separator = "_"
+}
 
 
