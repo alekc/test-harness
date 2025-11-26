@@ -33,5 +33,3 @@ resource "random_pet" "master-only3" {
   length = 3
   separator = "_"
 }
-
-

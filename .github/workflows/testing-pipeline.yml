@@ -1,0 +1,54 @@
+name: Testing Pipeline with Manual Approvals
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  stage1:
+    name: Stage 1 - Build/Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run basic checks
+        run: |
+          echo "Running Stage 1 checks..."
+          uname -a
+          node --version || true
+          python --version || true
+
+  stage2:
+    name: Stage 2 - Requires Approval (Environment: main)
+    needs: [stage1]
+    runs-on: ubuntu-latest
+    environment:
+      name: main
+    steps:
+      - name: Await approval and run gated tasks
+        run: |
+          echo "Stage 2 approved via environment 'main'. Proceeding..."
+          echo "Doing gated actions in Stage 2"
+
+  stage3:
+    name: Stage 3 - Integration Tests
+    needs: [stage2]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run integration tests (simulated)
+        run: |
+          echo "Running Stage 3 integration tests..."
+          echo "All tests passed"
+
+  stage4:
+    name: Stage 4 - Finalize (Requires Approval)
+    needs: [stage3]
+    runs-on: ubuntu-latest
+    environment:
+      name: main
+    steps:
+      - name: Await approval and finalize
+        run: |
+          echo "Stage 4 approved via environment 'main'. Finalizing..."
+          echo "Deployment/Release steps would go here"
